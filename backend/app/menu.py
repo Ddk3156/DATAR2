@@ -5,7 +5,7 @@ from datasets import load_dataset
 from huggingface_hub import HfApi
 # import kagglehub
 
-from backend.app.config import settings
+from app.config import settings
 
 
 # ============================================================
