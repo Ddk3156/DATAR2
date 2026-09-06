@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from app.menu import (
+from backend.app.menu import (
     search_all_sources,
     load_huggingface_dataset,
     detect_label_feature,
