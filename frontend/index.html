@@ -1,0 +1,519 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>DataR²</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #ffffff;
+            color: #222;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 750px;
+            min-height: 100vh;
+            padding: 40px 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        h1 {
+            margin: 0 0 8px;
+            font-size: 28px;
+        }
+
+        .subtitle {
+            color: #777;
+            margin-bottom: 35px;
+        }
+
+        #chat {
+            flex: 1;
+        }
+
+        .message {
+            margin-bottom: 22px;
+            line-height: 1.5;
+        }
+
+        .user {
+            color: #333;
+        }
+
+        .bot {
+            color: #555;
+        }
+
+        .label {
+            font-weight: bold;
+            margin-right: 6px;
+        }
+
+        .dataset-option {
+            margin: 12px 0;
+            padding: 12px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+
+        .dataset-option button {
+            margin-top: 6px;
+            padding: 7px 12px;
+            border: none;
+            border-radius: 6px;
+            background: #222;
+            color: white;
+            cursor: pointer;
+        }
+
+        .dataset-option button:hover {
+            background: #444;
+        }
+
+        .download {
+            display: inline-block;
+            margin-top: 10px;
+            padding: 10px 15px;
+            border-radius: 7px;
+            background: #222;
+            color: white;
+            text-decoration: none;
+        }
+
+        .input-area {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        input {
+            flex: 1;
+            padding: 13px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            font-size: 15px;
+            outline: none;
+        }
+
+        input:focus {
+            border-color: #777;
+        }
+
+        button {
+            padding: 13px 20px;
+            border: none;
+            border-radius: 8px;
+            background: #222;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #444;
+        }
+
+        button:disabled {
+            background: #aaa;
+            cursor: not-allowed;
+        }
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>DataR²</h1>
+
+    <div class="subtitle">
+        Data Requirement & Retrieval
+    </div>
+
+    <div id="chat">
+
+        <div class="message bot">
+            <span class="label">DataR²:</span>
+            Hello! 👋 What dataset are you looking for?
+        </div>
+
+    </div>
+
+    <div class="input-area">
+
+        <input
+            id="datasetInput"
+            type="text"
+            placeholder="Enter your request..."
+            onkeydown="handleEnter(event)"
+        >
+
+        <button
+            id="sendButton"
+            onclick="handleInput()"
+        >
+            Send
+        </button>
+
+    </div>
+
+</div>
+
+
+<script>
+
+let currentStep = "search";
+let selectedDatasetIndex = null;
+let selectedDatasetName = null;
+let sampleSize = null;
+
+
+// ENTER KEY
+function handleEnter(event) {
+    if (event.key === "Enter") {
+        handleInput();
+    }
+}
+
+
+// ADD MESSAGE
+function addMessage(type, text) {
+
+    const chat = document.getElementById("chat");
+
+    const message = document.createElement("div");
+
+    message.className = "message " + type;
+
+    message.innerHTML = `
+        <span class="label">
+            ${type === "user" ? "You:" : "DataR²:"}
+        </span>
+        ${text}
+    `;
+
+    chat.appendChild(message);
+
+    window.scrollTo(0, document.body.scrollHeight);
+}
+
+
+// MAIN INPUT HANDLER
+async function handleInput() {
+
+    const input = document.getElementById("datasetInput");
+
+    const value = input.value.trim();
+
+    if (!value) {
+        return;
+    }
+
+    addMessage("user", value);
+
+    input.value = "";
+
+    if (currentStep === "search") {
+
+        await searchDataset(value);
+
+    } else if (currentStep === "select") {
+
+    // If user enters text instead of selecting a number,
+    // treat it as a new dataset search.
+    await searchDataset(value);
+
+    } else if (currentStep === "sample_size") {
+
+        await askSampleSize(value);
+
+    } else if (currentStep === "class") {
+
+        await askClass(value);
+
+    }
+    
+}
+
+
+// SEARCH DATASET
+async function searchDataset(query) {
+
+    addMessage("bot", "Searching Hugging Face...");
+
+    try {
+
+        const response = await fetch(
+            "/retrieve",
+            {
+                method: "POST",
+
+                headers: {
+                    "Content-Type": "application/json"
+                },
+
+                body: JSON.stringify({
+                    dataset: query
+                })
+            }
+        );
+
+        const result = await response.json();
+
+        if (!result.results || result.results.length === 0) {
+
+            addMessage(
+                "bot",
+                "Sorry, I couldn't find any matching datasets."
+            );
+
+            return;
+        }
+
+        let html = "I found these datasets:<br><br>";
+
+        result.results.forEach((item, index) => {
+
+            const safeName = item.id.replace(/'/g, "\\'");
+
+            html += `
+                <div class="dataset-option">
+
+                    <strong>
+                        ${index + 1}. ${item.id}
+                    </strong>
+
+                    <br>
+
+                    Downloads: ${item.downloads}
+                    &nbsp; | &nbsp;
+                    Likes: ${item.likes}
+
+                    <br>
+
+                    <button
+                        onclick="selectDataset(${index + 1}, '${safeName}')"
+                    >
+                        Select
+                    </button>
+
+                </div>
+            `;
+
+        });
+
+        addMessage("bot", html);
+
+        currentStep = "select";
+
+    }
+
+    catch (error) {
+
+        console.error(error);
+
+        addMessage(
+            "bot",
+            "Sorry, I couldn't connect to the backend."
+        );
+
+    }
+}
+
+
+// SELECT DATASET
+async function selectDataset(index, name) {
+
+    selectedDatasetIndex = index;
+    selectedDatasetName = name;
+
+    addMessage(
+        "user",
+        "Selected: " + name
+    );
+
+    addMessage(
+        "bot",
+        "Checking whether this dataset is compatible..."
+    );
+
+    try {
+
+        const response = await fetch(
+            "/inspect",
+            {
+                method: "POST",
+
+                headers: {
+                    "Content-Type": "application/json"
+                },
+
+                body: JSON.stringify({
+                    dataset_index: index,
+                    sample_size: 1,
+                    target_class: ""
+                })
+            }
+        );
+
+        const result = await response.json();
+
+        if (result.status === "error") {
+
+            addMessage(
+                "bot",
+                "" + result.message +
+                "<br><br>Please select another dataset."
+            );
+
+            currentStep = "select";
+
+            return;
+        }
+
+        // Save available classes
+        window.availableClasses = result.classes || [];
+
+        addMessage(
+            "bot",
+            "Dataset is compatible! <br><br>" +
+            "How many samples do you need?"
+        );
+
+        currentStep = "sample_size";
+
+    }
+
+    catch (error) {
+
+        console.error(error);
+
+        addMessage(
+            "bot",
+            "Sorry, I couldn't check this dataset."
+        );
+
+        currentStep = "select";
+    }
+}
+
+
+
+// SAMPLE SIZE
+let classMessage = "Which class do you want?";
+
+if (window.availableClasses && window.availableClasses.length > 0) {
+    classMessage +=
+        "<br><br>Available classes: " +
+        window.availableClasses.join(", ");
+}
+
+addMessage("bot", classMessage);
+
+// CLASS
+async function askClass(value) {
+
+    const targetClass = value.trim();
+
+    if (!targetClass) {
+
+        addMessage(
+            "bot",
+            "Please enter a class."
+        );
+
+        return;
+    }
+
+    addMessage(
+        "bot",
+        "Processing your dataset. This may take a moment..."
+    );
+
+    try {
+
+        const response = await fetch(
+            "/process",
+            {
+                method: "POST",
+
+                headers: {
+                    "Content-Type": "application/json"
+                },
+
+                body: JSON.stringify({
+
+                    dataset_index: selectedDatasetIndex,
+
+                    sample_size: sampleSize,
+
+                    target_class: targetClass
+
+                })
+            }
+        );
+
+        const result = await response.json();
+
+        if (result.status === "error") {
+
+            addMessage(
+                "bot",
+                result.message
+            );
+
+            return;
+        }
+
+        addMessage(
+            "bot",
+            `
+                Done! ✅<br><br>
+
+                Dataset: <strong>${result.dataset}</strong><br>
+                Class: <strong>${result.class}</strong><br>
+                Samples: <strong>${result.sample_size}</strong><br><br>
+
+                <a
+                    class="download"
+                    href="${result.download_url}"
+                    download
+                >
+                    Download ZIP
+                </a>
+            `
+        );
+
+        currentStep = "search";
+
+    }
+
+    catch (error) {
+
+        console.error(error);
+
+        addMessage(
+            "bot",
+            "Something went wrong while processing the dataset."
+        );
+
+    }
+
+}
+
+</script>
+
+</body>
+</html>
