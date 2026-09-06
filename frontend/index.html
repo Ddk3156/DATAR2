@@ -412,16 +412,35 @@ async function selectDataset(index, name) {
 
 
 // SAMPLE SIZE
-let classMessage = "Which class do you want?";
+// SAMPLE SIZE
+async function askSampleSize(value) {
 
-if (window.availableClasses && window.availableClasses.length > 0) {
-    classMessage +=
-        "<br><br>Available classes: " +
-        window.availableClasses.join(", ");
+    const size = parseInt(value.trim());
+
+    if (isNaN(size) || size <= 0) {
+
+        addMessage(
+            "bot",
+            "Please enter a valid number of samples."
+        );
+
+        return;
+    }
+
+    sampleSize = size;
+
+    let classMessage = "Which class do you want?";
+
+    if (window.availableClasses && window.availableClasses.length > 0) {
+        classMessage +=
+            "<br><br>Available classes: " +
+            window.availableClasses.join(", ");
+    }
+
+    addMessage("bot", classMessage);
+
+    currentStep = "class";
 }
-
-addMessage("bot", classMessage);
-
 // CLASS
 async function askClass(value) {
 
